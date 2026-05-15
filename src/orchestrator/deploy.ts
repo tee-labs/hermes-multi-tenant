@@ -29,6 +29,8 @@ export function buildContext(config: AppConfig, tenantId: string): TemplateConte
     pvcName: config.k8s.pvcName,
     ingressClass: config.k8s.ingressClass,
     domainSuffix: config.domain.suffix,
+    imagePullPolicy: config.k8s.imagePullPolicy,
+    resources: config.resources,
   };
 }
 

@@ -8,16 +8,14 @@ export interface TemplateContext {
   pvcName: string;
   ingressClass: string;
   domainSuffix: string;
+  imagePullPolicy?: string;
   resources?: {
-    cpu?: string;
-    memory?: string;
+    requestsCpu?: string;
+    requestsMemory?: string;
+    limitsCpu?: string;
+    limitsMemory?: string;
   };
 }
-
-const DEFAULT_RESOURCES = {
-  requests: { cpu: '0.1', memory: '256Mi' },
-  limits: { cpu: '0.5', memory: '512Mi' },
-};
 
 export function renderDeployment(ctx: TemplateContext): object {
   const name = `tenant-${ctx.id}`;
@@ -25,12 +23,12 @@ export function renderDeployment(ctx: TemplateContext): object {
 
   const resources = {
     requests: {
-      cpu: ctx.resources?.cpu || DEFAULT_RESOURCES.requests.cpu,
-      memory: ctx.resources?.memory || DEFAULT_RESOURCES.requests.memory,
+      cpu: ctx.resources?.requestsCpu || '0.5',
+      memory: ctx.resources?.requestsMemory || '512Mi',
     },
     limits: {
-      cpu: ctx.resources?.cpu || DEFAULT_RESOURCES.limits.cpu,
-      memory: ctx.resources?.memory || DEFAULT_RESOURCES.limits.memory,
+      cpu: ctx.resources?.limitsCpu || '1',
+      memory: ctx.resources?.limitsMemory || '1Gi',
     },
   };
 
@@ -55,7 +53,7 @@ export function renderDeployment(ctx: TemplateContext): object {
             {
               name: 'hermes-agent',
               image: ctx.image,
-              imagePullPolicy: 'IfNotPresent',
+              imagePullPolicy: ctx.imagePullPolicy || 'IfNotPresent',
               env: [
                 { name: 'TENANT_ID', value: ctx.id },
               ],
@@ -109,9 +107,6 @@ export function renderIngress(ctx: TemplateContext): object {
     metadata: {
       name,
       labels,
-      annotations: {
-        'nginx.ingress.kubernetes.io/rewrite-target': '/',
-      },
     },
     spec: {
       ingressClassName: ctx.ingressClass,
