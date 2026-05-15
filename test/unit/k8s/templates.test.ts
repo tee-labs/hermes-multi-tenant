@@ -9,6 +9,7 @@ describe('templates', () => {
     pvcName: 'hermes-shared-data',
     ingressClass: 'nginx',
     domainSuffix: '.hermes.example.com',
+    imagePullPolicy: 'Always',
   };
 
   describe('renderDeployment', () => {
@@ -31,7 +32,7 @@ describe('templates', () => {
       expect(containers[0]).toMatchObject({
         name: 'hermes-agent',
         image: 'hermes-agent:v1.0.0',
-        imagePullPolicy: 'IfNotPresent',
+        imagePullPolicy: 'Always',
       });
 
       const env = containers[0].env as { name: string; value: string }[];
@@ -47,7 +48,7 @@ describe('templates', () => {
     it('merges custom resources correctly', () => {
       const ctxWithResources = {
         ...baseCtx,
-        resources: { cpu: '0.25', memory: '512Mi' },
+        resources: { requestsCpu: '0.25', requestsMemory: '256Mi', limitsCpu: '0.5', limitsMemory: '512Mi' },
       };
       const deployment = renderDeployment(ctxWithResources) as Record<string, unknown>;
 
@@ -56,8 +57,8 @@ describe('templates', () => {
       const containers = podSpec.containers as Record<string, unknown>[];
       const resources = containers[0].resources as { requests: { cpu: string; memory: string }; limits: { cpu: string; memory: string } };
 
-      expect(resources.requests).toMatchObject({ cpu: '0.25', memory: '512Mi' });
-      expect(resources.limits).toMatchObject({ cpu: '0.25', memory: '512Mi' });
+      expect(resources.requests).toMatchObject({ cpu: '0.25', memory: '256Mi' });
+      expect(resources.limits).toMatchObject({ cpu: '0.5', memory: '512Mi' });
     });
 
     it('uses default resources when not provided', () => {
@@ -68,8 +69,8 @@ describe('templates', () => {
       const containers = podSpec.containers as Record<string, unknown>[];
       const resources = containers[0].resources as { requests: { cpu: string; memory: string }; limits: { cpu: string; memory: string } };
 
-      expect(resources.requests).toMatchObject({ cpu: '0.1', memory: '256Mi' });
-      expect(resources.limits).toMatchObject({ cpu: '0.5', memory: '512Mi' });
+      expect(resources.requests).toMatchObject({ cpu: '0.5', memory: '512Mi' });
+      expect(resources.limits).toMatchObject({ cpu: '1', memory: '1Gi' });
     });
   });
 
@@ -97,14 +98,12 @@ describe('templates', () => {
       const ingress = renderIngress(baseCtx) as Record<string, unknown>;
 
       expect(ingress.kind).toBe('Ingress');
-      const metadata = ingress.metadata as { name: string; labels: Record<string, string>; annotations: Record<string, string> };
+      const metadata = ingress.metadata as { name: string; labels: Record<string, string>; annotations?: Record<string, string> };
       expect(metadata).toMatchObject({
         name: 'tenant-acme-corp',
         labels: { app: 'hermes-agent', tenant: 'acme-corp' },
       });
-      expect(metadata.annotations).toMatchObject({
-        'nginx.ingress.kubernetes.io/rewrite-target': '/',
-      });
+      expect(metadata.annotations).toBeUndefined();
 
       const spec = ingress.spec as Record<string, unknown>;
       expect(spec.ingressClassName).toBe('nginx');

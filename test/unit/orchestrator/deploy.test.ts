@@ -44,6 +44,7 @@ const mockConfig: AppConfig = {
     pvcName: 'hermes-data',
     ingressClass: 'nginx',
     image: 'hermes-web:latest',
+    imagePullPolicy: 'Always',
   },
   nfs: {
     server: '192.168.1.1',
@@ -52,6 +53,12 @@ const mockConfig: AppConfig = {
   },
   domain: {
     suffix: '.hermes.example.com',
+  },
+  resources: {
+    requestsCpu: '0.5',
+    requestsMemory: '512Mi',
+    limitsCpu: '1',
+    limitsMemory: '1Gi',
   },
 };
 
@@ -77,6 +84,13 @@ describe('buildContext', () => {
       pvcName: 'hermes-data',
       ingressClass: 'nginx',
       domainSuffix: '.hermes.example.com',
+      imagePullPolicy: 'Always',
+      resources: {
+        requestsCpu: '0.5',
+        requestsMemory: '512Mi',
+        limitsCpu: '1',
+        limitsMemory: '1Gi',
+      },
     });
   });
 });
