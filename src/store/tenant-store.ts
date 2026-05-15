@@ -16,6 +16,30 @@ export function getAllTenants(db: Database): TenantRecord[] {
   return rows.map(rowToTenantRecord);
 }
 
+export interface PaginatedTenants {
+  tenants: TenantRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export function getAllTenantsPage(db: Database, page: number = 1, limit: number = 50): PaginatedTenants {
+  const total = (db.prepare('SELECT COUNT(*) as count FROM tenants').get() as { count: number }).count;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const offset = (currentPage - 1) * limit;
+
+  const rows = db.prepare('SELECT * FROM tenants ORDER BY createdAt LIMIT ? OFFSET ?').all(limit, offset) as TenantRow[];
+  return {
+    tenants: rows.map(rowToTenantRecord),
+    total,
+    page: currentPage,
+    limit,
+    totalPages,
+  };
+}
+
 export function getTenant(db: Database, id: string): TenantRecord | undefined {
   const row = db.prepare('SELECT * FROM tenants WHERE id = ?').get(id) as TenantRow | undefined;
   return row ? rowToTenantRecord(row) : undefined;

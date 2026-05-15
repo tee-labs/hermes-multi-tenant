@@ -18,7 +18,7 @@ vi.mock('../../../src/store/tenant-store.js', () => ({
   getTenant: vi.fn(),
   insertTenant: vi.fn(),
   updateTenantStatus: vi.fn(),
-  getAllTenants: vi.fn(),
+  getAllTenantsPage: vi.fn(),
 }));
 
 vi.mock('../../../src/nfs/manager.js', () => ({
@@ -27,7 +27,7 @@ vi.mock('../../../src/nfs/manager.js', () => ({
 
 import { createK8sClients, resourceExists, waitForPodReady, deleteResources } from '../../../src/k8s/client.js';
 import { renderManifests } from '../../../src/k8s/templates.js';
-import { getTenant, insertTenant, updateTenantStatus, getAllTenants } from '../../../src/store/tenant-store.js';
+import { getTenant, insertTenant, updateTenantStatus, getAllTenantsPage } from '../../../src/store/tenant-store.js';
 import { createTenantStorage } from '../../../src/nfs/manager.js';
 
 import {
@@ -221,12 +221,19 @@ describe('getTenantStatus', () => {
 });
 
 describe('listTenants', () => {
-  it('delegates to getAllTenants', async () => {
-    const records = [{ id: 'a' }, { id: 'b' }] as never[];
-    vi.mocked(getAllTenants).mockReturnValue(records);
+  it('delegates to getAllTenantsPage with default pagination', async () => {
+    const records = { tenants: [{ id: 'a' }, { id: 'b' }], total: 2, page: 1, limit: 50, totalPages: 1 } as never;
+    vi.mocked(getAllTenantsPage).mockReturnValue(records);
 
     const result = await listTenants(mockDb);
     expect(result).toEqual(records);
-    expect(getAllTenants).toHaveBeenCalledWith(mockDb);
+    expect(getAllTenantsPage).toHaveBeenCalledWith(mockDb, 1, 50);
+  });
+
+  it('passes page and limit when provided', async () => {
+    vi.mocked(getAllTenantsPage).mockReturnValue({ tenants: [], total: 0, page: 2, limit: 10, totalPages: 0 } as never);
+
+    await listTenants(mockDb, 2, 10);
+    expect(getAllTenantsPage).toHaveBeenCalledWith(mockDb, 2, 10);
   });
 });
