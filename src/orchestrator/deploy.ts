@@ -7,6 +7,7 @@ import type { Database } from '../store/db.js';
 import { getTenant, insertTenant, updateTenantStatus, getAllTenantsPage, type PaginatedTenants } from '../store/tenant-store.js';
 import { createTenantStorage } from '../nfs/manager.js';
 import type { InsertTenantInput } from '../store/tenant-store.js';
+import { verbose } from '../cli/logger.js';
 
 export type TenantHealthStatus = 'running' | 'pending' | 'failed' | 'unknown';
 
@@ -34,7 +35,15 @@ export function buildContext(config: AppConfig, tenantId: string): TemplateConte
   };
 }
 
+function getResourceKind(resource: object): string {
+  const r = resource as { kind?: string };
+  return r.kind || 'unknown';
+}
+
 async function applyResource(clients: K8sClients, namespace: string, resource: object): Promise<void> {
+  const kind = getResourceKind(resource);
+  verbose(`Applying ${kind}: ...`);
+
   const r = resource as { kind: string; apiVersion: string };
   if (r.kind === 'Deployment' && r.apiVersion === 'apps/v1') {
     await clients.apps.createNamespacedDeployment({ namespace, body: resource as never });
@@ -43,6 +52,8 @@ async function applyResource(clients: K8sClients, namespace: string, resource: o
   } else if (r.kind === 'Ingress' && r.apiVersion === 'networking.k8s.io/v1') {
     await clients.networking.createNamespacedIngress({ namespace, body: resource as never });
   }
+
+  verbose(`Applied ${kind}`);
 }
 
 export async function createTenant(
@@ -51,6 +62,8 @@ export async function createTenant(
   tenantId: string,
 ): Promise<LifecycleResult> {
   const name = tenantResourceName(tenantId);
+
+  verbose(`Creating tenant ${tenantId}...`);
 
   const existing = getTenant(db, tenantId);
   if (existing) {
@@ -68,6 +81,7 @@ export async function createTenant(
   };
 
   try {
+    verbose('Inserting tenant record...');
     insertTenant(db, insertInput);
   } catch (err) {
     return { success: false, tenantId, message: `Failed to insert tenant record: ${(err as Error).message}` };
@@ -91,6 +105,7 @@ export async function createTenant(
   // Render manifests
   const ctx = buildContext(config, tenantId);
   const manifests = renderManifests(ctx, config.template?.dir);
+  verbose('Manifests rendered');
 
   // Get K8s clients and apply
   let clients: K8sClients;
@@ -101,13 +116,32 @@ export async function createTenant(
     return { success: false, tenantId, message: `Failed to create K8s clients: ${(err as Error).message}` };
   }
 
-  try {
-    if (manifests.deployment) await applyResource(clients, config.k8s.namespace, manifests.deployment);
-    if (manifests.service) await applyResource(clients, config.k8s.namespace, manifests.service);
-    if (manifests.ingress) await applyResource(clients, config.k8s.namespace, manifests.ingress);
-  } catch (err) {
-    try { updateTenantStatus(db, tenantId, 'error'); } catch {}
-    return { success: false, tenantId, message: `Failed to apply K8s resources: ${(err as Error).message}` };
+  // Apply each resource separately with specific error message
+  if (manifests.deployment) {
+    try {
+      await applyResource(clients, config.k8s.namespace, manifests.deployment);
+    } catch (err) {
+      try { updateTenantStatus(db, tenantId, 'error'); } catch {}
+      return { success: false, tenantId, message: `Failed to create Deployment: ${(err as Error).message}` };
+    }
+  }
+
+  if (manifests.service) {
+    try {
+      await applyResource(clients, config.k8s.namespace, manifests.service);
+    } catch (err) {
+      try { updateTenantStatus(db, tenantId, 'error'); } catch {}
+      return { success: false, tenantId, message: `Failed to create Service: ${(err as Error).message}` };
+    }
+  }
+
+  if (manifests.ingress) {
+    try {
+      await applyResource(clients, config.k8s.namespace, manifests.ingress);
+    } catch (err) {
+      try { updateTenantStatus(db, tenantId, 'error'); } catch {}
+      return { success: false, tenantId, message: `Failed to create Ingress: ${(err as Error).message}` };
+    }
   }
 
   // Wait for pod ready
@@ -122,6 +156,8 @@ export async function createTenant(
   try {
     updateTenantStatus(db, tenantId, 'running');
   } catch { /* pod already running */ }
+
+  verbose(`Tenant ${tenantId} created successfully`);
 
   return {
     success: true,
@@ -138,6 +174,8 @@ export async function deleteTenant(
 ): Promise<LifecycleResult> {
   const name = tenantResourceName(tenantId);
 
+  verbose(`Deleting tenant ${tenantId}...`);
+
   const existing = getTenant(db, tenantId);
   if (!existing) {
     return { success: false, tenantId, message: `Tenant ${tenantId} not found` };
@@ -151,7 +189,11 @@ export async function deleteTenant(
   }
 
   try {
-    await deleteResources(clients, config.k8s.namespace, name);
+    const result = await deleteResources(clients, config.k8s.namespace, name);
+    if (result.errors.length > 0) {
+      const errorDetails = result.errors.map(e => `${e.kind}: ${e.error}`).join('; ');
+      return { success: false, tenantId, message: `Failed to delete K8s resources: ${errorDetails}` };
+    }
   } catch (err) {
     return { success: false, tenantId, message: `Failed to delete K8s resources: ${(err as Error).message}` };
   }
@@ -159,6 +201,8 @@ export async function deleteTenant(
   try {
     updateTenantStatus(db, tenantId, 'deleted');
   } catch { /* non-fatal */ }
+
+  verbose(`Tenant ${tenantId} deleted`);
 
   return { success: true, tenantId, message: `Tenant ${tenantId} deleted successfully` };
 }

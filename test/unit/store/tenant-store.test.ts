@@ -33,7 +33,6 @@ describe('tenant-store', () => {
       .all()
       .map((r: any) => r.name);
     expect(tables).toContain('tenants');
-    expect(tables).toContain('operations');
   });
 
   it('insert and read a tenant', () => {
@@ -125,15 +124,6 @@ describe('tenant-store', () => {
     expect(() =>
       insertTenant(db, { id: 't1', subdomain: 'b', nfsPath: '/n', deploymentName: 'd', serviceName: 's', ingressName: 'i' })
     ).toThrow();
-  });
-
-  it('insertOperationLog stores log entry', () => {
-    insertTenant(db, { id: 't1', subdomain: 'a', nfsPath: '/n', deploymentName: 'd', serviceName: 's', ingressName: 'i' });
-    insertOperationLog(db, { tenantId: 't1', action: 'create', message: 'started' });
-    const logs = db.prepare('SELECT * FROM operations WHERE tenantId = ?').all('t1') as any[];
-    expect(logs).toHaveLength(1);
-    expect(logs[0].action).toBe('create');
-    expect(logs[0].message).toBe('started');
   });
 
   it('deleteTenantRecord sets status to deleted', () => {

@@ -24,11 +24,3 @@ export interface TenantRecord {
   updatedAt: Date;
 }
 
-export interface OperationLog {
-  id: string;
-  tenantId: string;
-  action: string;
-  status: 'success' | 'failure';
-  message: string;
-  createdAt: Date;
-}

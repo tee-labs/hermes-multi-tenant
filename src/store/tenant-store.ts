@@ -104,20 +104,6 @@ export function deleteTenantRecord(db: Database, id: string): void {
   db.prepare('UPDATE tenants SET status = ?, updatedAt = ? WHERE id = ?').run('deleted', now, id);
 }
 
-export interface InsertOperationInput {
-  tenantId: string;
-  action: string;
-  status?: 'ok' | 'error';
-  message?: string;
-}
-
-export function insertOperationLog(db: Database, entry: InsertOperationInput): void {
-  db.prepare(`
-    INSERT INTO operations (tenantId, action, status, message, createdAt)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(entry.tenantId, entry.action, entry.status ?? 'ok', entry.message ?? null, new Date().toISOString());
-}
-
 interface TenantRow {
   id: string;
   subdomain: string;

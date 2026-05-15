@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import { verbose } from '../cli/logger.js';
 
 export interface NfsConfig {
   server: string;      // NFS server IP/hostname
@@ -50,10 +51,14 @@ export function unmountNfs(mountPoint: string): void {
 
 export function createTenantStorage(config: NfsConfig, tenantId: string): string {
   const mountPoint = getMountPoint(config.mountBase);
+  const nfsPath = `${config.server}:${config.exportPath}`;
+
+  verbose(`Creating NFS directory: ${nfsPath}/tenant-${tenantId}`);
 
   try {
     mountNfs(config.server, config.exportPath, mountPoint);
     ensureTenantDir(mountPoint, tenantId);
+    verbose(`NFS directory ready: ${nfsPath}/tenant-${tenantId}`);
   } catch (err) {
     const error = err as Error;
     throw new Error(`Failed to create tenant storage for ${tenantId}: ${error.message}`);

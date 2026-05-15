@@ -6,6 +6,7 @@ import { createTenant, deleteTenant, getTenantStatus, listTenants } from '../orc
 import type { AppConfig } from '../types/config.js';
 import type { Database } from '../store/db.js';
 import type { TenantRecord } from '../types/tenant.js';
+import { setVerbose } from './logger.js';
 
 function getDbPath(_config: AppConfig): string {
   const home = process.env.HOME || process.env.USERPROFILE || '/root';
@@ -98,7 +99,8 @@ export function buildProgram(): Command {
   program
     .name('hermes-ctl')
     .description('Hermes Agent multi-tenant management CLI')
-    .version('0.1.0');
+    .version('0.1.0')
+    .option('-v, --verbose', 'Enable verbose operation logging', () => setVerbose(true));
 
   program
     .command('create <id>')

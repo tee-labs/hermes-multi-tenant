@@ -18,15 +18,5 @@ export const migrations: string[] = [
     updatedAt       TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
 
-  `CREATE TABLE IF NOT EXISTS operations (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    tenantId    TEXT NOT NULL REFERENCES tenants(id),
-    action      TEXT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'ok',
-    message     TEXT,
-    createdAt   TEXT NOT NULL DEFAULT (datetime('now'))
-  )`,
-
   `CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status)`,
-  `CREATE INDEX IF NOT EXISTS idx_ops_tenant ON operations(tenantId)`,
 ];

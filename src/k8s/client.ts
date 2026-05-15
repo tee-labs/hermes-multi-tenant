@@ -1,4 +1,5 @@
 import * as k8s from '@kubernetes/client-node';
+import { verbose } from '../cli/logger.js';
 
 export interface K8sClients {
   core: k8s.CoreV1Api;
@@ -104,6 +105,7 @@ export async function waitForPodReady(
   pollInterval = DEFAULT_POLL_INTERVAL,
 ): Promise<void> {
   const startTime = Date.now();
+  verbose(`Waiting for pod ${name} (timeout: ${timeoutMs}ms)...`);
 
   while (Date.now() - startTime < timeoutMs) {
     const pod = await clients.core.readNamespacedPod({ name, namespace });
@@ -184,6 +186,8 @@ export async function deleteResources(
   namespace: string,
   name: string,
 ): Promise<{ deleted: string[]; errors: { kind: string; error: string }[] }> {
+  verbose(`Deleting K8s resources for ${name} in namespace ${namespace}`);
+
   const results = await Promise.all([
     deleteDeployment(clients, namespace, name),
     deleteService(clients, namespace, name),
@@ -196,6 +200,7 @@ export async function deleteResources(
   for (const result of results) {
     if (result.success) {
       deleted.push(result.kind);
+      verbose(`Deleted ${result.kind}: ${name}`);
     } else if (result.error) {
       errors.push({ kind: result.kind, error: result.error });
     }

@@ -71,7 +71,7 @@ const mockK8sClients = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 describe('buildContext', () => {
@@ -150,7 +150,7 @@ describe('createTenant', () => {
     expect(updateTenantStatus).toHaveBeenCalledWith(mockDb, tenantId, 'error');
   });
 
-  it('updates to error on K8s apply failure', async () => {
+  it('reports Deployment creation failure specifically', async () => {
     vi.mocked(getTenant).mockReturnValue(undefined);
     vi.mocked(insertTenant).mockReturnValue(undefined);
     vi.mocked(updateTenantStatus).mockReturnValue(undefined);
@@ -160,7 +160,47 @@ describe('createTenant', () => {
     const result = await createTenant(mockDb, mockConfig, tenantId);
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('K8s resources');
+    expect(result.message).toContain('Deployment: api error');
+    expect(updateTenantStatus).toHaveBeenCalledWith(mockDb, tenantId, 'error');
+  });
+
+  it('reports Service creation failure specifically', async () => {
+    vi.mocked(getTenant).mockReturnValue(undefined);
+    vi.mocked(insertTenant).mockReturnValue(undefined);
+    vi.mocked(updateTenantStatus).mockReturnValue(undefined);
+    vi.mocked(createTenantStorage).mockReturnValue('/mnt/nfs/test');
+    vi.mocked(createK8sClients).mockReturnValue(mockK8sClients as never);
+    vi.mocked(renderManifests).mockReturnValue({
+      deployment: { kind: 'Deployment', apiVersion: 'apps/v1', metadata: { name: `tenant-${tenantId}` } },
+      service: { kind: 'Service', apiVersion: 'v1', metadata: { name: `tenant-${tenantId}` } },
+      ingress: { kind: 'Ingress', apiVersion: 'networking.k8s.io/v1', metadata: { name: `tenant-${tenantId}` } },
+    });
+    vi.mocked(mockK8sClients.core.createNamespacedService).mockImplementation(() => { throw new Error('service error'); });
+
+    const result = await createTenant(mockDb, mockConfig, tenantId);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Service: service error');
+    expect(updateTenantStatus).toHaveBeenCalledWith(mockDb, tenantId, 'error');
+  });
+
+  it('reports Ingress creation failure specifically', async () => {
+    vi.mocked(getTenant).mockReturnValue(undefined);
+    vi.mocked(insertTenant).mockReturnValue(undefined);
+    vi.mocked(updateTenantStatus).mockReturnValue(undefined);
+    vi.mocked(createTenantStorage).mockReturnValue('/mnt/nfs/test');
+    vi.mocked(createK8sClients).mockReturnValue(mockK8sClients as never);
+    vi.mocked(renderManifests).mockReturnValue({
+      deployment: { kind: 'Deployment', apiVersion: 'apps/v1', metadata: { name: `tenant-${tenantId}` } },
+      service: { kind: 'Service', apiVersion: 'v1', metadata: { name: `tenant-${tenantId}` } },
+      ingress: { kind: 'Ingress', apiVersion: 'networking.k8s.io/v1', metadata: { name: `tenant-${tenantId}` } },
+    });
+    vi.mocked(mockK8sClients.networking.createNamespacedIngress).mockImplementation(() => { throw new Error('ingress error'); });
+
+    const result = await createTenant(mockDb, mockConfig, tenantId);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Ingress: ingress error');
     expect(updateTenantStatus).toHaveBeenCalledWith(mockDb, tenantId, 'error');
   });
 });
@@ -171,7 +211,7 @@ describe('deleteTenant', () => {
   it('deletes K8s resources and updates status', async () => {
     vi.mocked(getTenant).mockReturnValue({ id: tenantId } as never);
     vi.mocked(createK8sClients).mockReturnValue(mockK8sClients as never);
-    vi.mocked(deleteResources).mockResolvedValue(undefined);
+    vi.mocked(deleteResources).mockResolvedValue({ deleted: ['Deployment', 'Service', 'Ingress'], errors: [] });
     vi.mocked(updateTenantStatus).mockReturnValue(undefined);
 
     const result = await deleteTenant(mockDb, mockConfig, tenantId);
@@ -189,6 +229,19 @@ describe('deleteTenant', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('not found');
     expect(deleteResources).not.toHaveBeenCalled();
+  });
+
+  it('reports which K8s resources failed to delete', async () => {
+    vi.mocked(getTenant).mockReturnValue({ id: tenantId } as never);
+    vi.mocked(createK8sClients).mockReturnValue(mockK8sClients as never);
+    vi.mocked(deleteResources).mockResolvedValue({ deleted: ['Service'], errors: [{ kind: 'Deployment', error: 'not found' }, { kind: 'Ingress', error: 'timeout' }] });
+    vi.mocked(updateTenantStatus).mockReturnValue(undefined);
+
+    const result = await deleteTenant(mockDb, mockConfig, tenantId);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Deployment: not found');
+    expect(result.message).toContain('Ingress: timeout');
   });
 });
 
