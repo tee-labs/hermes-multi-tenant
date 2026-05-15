@@ -135,11 +135,16 @@ export function renderIngress(ctx: TemplateContext): object {
   };
 }
 
-export function renderManifests(ctx: TemplateContext): {
+export function renderManifests(ctx: TemplateContext, templateDir?: string): {
   deployment: object;
   service: object;
   ingress: object;
 } {
+  if (templateDir) {
+    const { renderManifestsFromFiles } = require('./template-loader.js');
+    return renderManifestsFromFiles(ctx, templateDir);
+  }
+
   return {
     deployment: renderDeployment(ctx),
     service: renderService(ctx),

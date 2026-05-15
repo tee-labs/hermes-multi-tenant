@@ -24,9 +24,14 @@ export interface ResourcesConfig {
   limitsMemory?: string;
 }
 
+export interface TemplateConfig {
+  dir: string;
+}
+
 export interface AppConfig {
   k8s: K8sConfig;
   nfs: NFSConfig;
   domain: DomainConfig;
   resources?: ResourcesConfig;
+  template?: TemplateConfig;
 }
