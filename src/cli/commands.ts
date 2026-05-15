@@ -46,17 +46,21 @@ async function handleDelete(id: string): Promise<void> {
   }
 }
 
-async function handleList(): Promise<void> {
+async function handleList(page: number = 1, limit: number = 50): Promise<void> {
   const config = loadConfig();
   const dbPath = getDbPath(config);
   const db = initDatabase(dbPath);
   try {
-    const tenants = await listTenants(db);
+    const result = await listTenants(db, page, limit);
+    const { tenants, total, page: currentPage, totalPages } = result;
+
     if (tenants.length === 0) {
       console.log('No tenants');
       return;
     }
-    console.log(`\n${'ID'.padEnd(30)} ${'Status'.padEnd(12)} ${'Created'}`);
+
+    console.log(`\nPage ${currentPage}/${totalPages} (${total} total)`);
+    console.log(`${'ID'.padEnd(30)} ${'Status'.padEnd(12)} ${'Created'}`);
     console.log('-'.repeat(60));
     for (const tenant of tenants) {
       const created = tenant.createdAt instanceof Date
@@ -109,7 +113,9 @@ export function buildProgram(): Command {
   program
     .command('list')
     .description('List all tenants')
-    .action(handleList);
+    .option('-p, --page <number>', 'Page number (default: 1)', '1')
+    .option('-l, --limit <number>', 'Items per page (default: 50)', '50')
+    .action((opts: { page: string; limit: string }) => handleList(parseInt(opts.page, 10), parseInt(opts.limit, 10)));
 
   program
     .command('status <id>')

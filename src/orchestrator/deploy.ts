@@ -4,7 +4,7 @@ import { createK8sClients, resourceExists, waitForPodReady, deleteResources } fr
 import { renderManifests, type TemplateContext } from '../k8s/templates.js';
 import type { TenantRecord, TenantStatus } from '../types/tenant.js';
 import type { Database } from '../store/db.js';
-import { getTenant, insertTenant, updateTenantStatus, getAllTenants } from '../store/tenant-store.js';
+import { getTenant, insertTenant, updateTenantStatus, getAllTenantsPage, type PaginatedTenants } from '../store/tenant-store.js';
 import { createTenantStorage } from '../nfs/manager.js';
 import type { InsertTenantInput } from '../store/tenant-store.js';
 
@@ -202,6 +202,6 @@ export async function getTenantStatus(
   }
 }
 
-export async function listTenants(db: Database): Promise<TenantRecord[]> {
-  return getAllTenants(db);
+export async function listTenants(db: Database, page: number = 1, limit: number = 50): Promise<PaginatedTenants> {
+  return getAllTenantsPage(db, page, limit);
 }

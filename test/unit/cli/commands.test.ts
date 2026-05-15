@@ -91,13 +91,22 @@ describe('delete command', () => {
 });
 
 describe('list command', () => {
-  it('calls listTenants', async () => {
-    vi.mocked(listTenants).mockResolvedValue([]);
+  it('calls listTenants with default pagination', async () => {
+    vi.mocked(listTenants).mockResolvedValue({ tenants: [], total: 0, page: 1, limit: 50, totalPages: 0 });
 
     const program = buildProgram();
     await program.parseAsync(['node', 'hermes-ctl', 'list']);
 
-    expect(listTenants).toHaveBeenCalledWith(mockDb);
+    expect(listTenants).toHaveBeenCalledWith(mockDb, 1, 50);
+  });
+
+  it('passes --page and --limit options', async () => {
+    vi.mocked(listTenants).mockResolvedValue({ tenants: [], total: 0, page: 2, limit: 10, totalPages: 0 });
+
+    const program = buildProgram();
+    await program.parseAsync(['node', 'hermes-ctl', 'list', '--page', '2', '--limit', '10']);
+
+    expect(listTenants).toHaveBeenCalledWith(mockDb, 2, 10);
   });
 });
 
