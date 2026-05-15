@@ -90,7 +90,7 @@ export async function createTenant(
 
   // Render manifests
   const ctx = buildContext(config, tenantId);
-  const manifests = renderManifests(ctx);
+  const manifests = renderManifests(ctx, config.template?.dir);
 
   // Get K8s clients and apply
   let clients: K8sClients;
